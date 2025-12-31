@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>正在为你跳转 B 站视频...</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #f6f6f6; }
+        .card { width: 80%; padding: 20px; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); text-align: center; }
+        .bili-pink { color: #fb7299; font-weight: bold; }
+        .shake-icon { font-size: 64px; margin: 20px 0; animation: shake 0.5s infinite alternate; }
+        @keyframes shake { from { transform: rotate(-10deg); } to { transform: rotate(10deg); } }
+        .btn { background: #fb7299; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 20px; }
+        #wechat-guide { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: white; text-align: right; padding: 20px; box-sizing: border-box; z-index: 100; }
+    </style>
+</head>
+<body>
+
+    <div id="wechat-guide">点击右上角选择“在浏览器打开” ↗️</div>
+
+    <div class="card">
+        <div class="shake-icon">📱</div>
+        <p>监听到好友分享的视频</p>
+        <p class="bili-pink">「摇一摇」或点击按钮直接进入 B 站</p>
+        <button class="btn" id="activeBtn">立即观看</button>
+    </div>
+
+    <script>
+        // 1. 配置跳转参数
+        const BV_ID = "BV1GJ411x7h7"; // 在这里替换你想分享的视频号
+        const BILI_SCHEME = `bilibili://video/${BV_ID}`;
+        const BILI_UNIVERSAL_LINK = `https://www.bilibili.com/video/${BV_ID}`;
+
+        const activeBtn = document.getElementById('activeBtn');
+        const wechatGuide = document.getElementById('wechat-guide');
+
+        // 2. 检测环境
+        const isWeChat = /MicroMessenger/i.test(navigator.userAgent);
+        if (isWeChat) {
+            wechatGuide.style.display = 'block'; // 微信内引导外部打开
+        }
+
+        // 3. 核心跳转函数
+        function doJump() {
+            window.location.href = BILI_SCHEME;
+            // 如果3秒内没跳转（没装App），则去网页版
+            setTimeout(() => {
+                window.location.href = BILI_UNIVERSAL_LINK;
+            }, 3000);
+        }
+
+        // 4. 传感器优化逻辑
+        let lastTime = 0;
+        let lastX, lastY, lastZ;
+        const SHAKE_THRESHOLD = 800; // 灵敏度（值越小越灵敏）
+
+        function onDeviceMotion(event) {
+            const acceleration = event.accelerationIncludingGravity;
+            const curTime = Date.now();
+            
+            if ((curTime - lastTime) > 100) {
+                const diffTime = curTime - lastTime;
+                lastTime = curTime;
+
+                const x = acceleration.x;
+                const y = acceleration.y;
+                const z = acceleration.z;
+
+                const speed = Math.abs(x + y + z - lastX - lastY - lastZ) / diffTime * 10000;
+
+                if (speed > SHAKE_THRESHOLD) {
+                    doJump();
+                }
+                lastX = x; lastY = y; lastZ = z;
+            }
+        }
+
+        // 5. 权限处理（iOS 13+ 必须点击后才能开启传感器）
+        activeBtn.addEventListener('click', () => {
+            if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                DeviceMotionEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            window.addEventListener('devicemotion', onDeviceMotion);
+                            doJump(); // 点击也直接跳一次
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                // 非iOS系统
+                window.addEventListener('devicemotion', onDeviceMotion);
+                doJump();
+            }
+        });
+    </script>
+</body>
+</html>
